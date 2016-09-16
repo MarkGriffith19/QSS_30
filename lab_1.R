@@ -20,4 +20,4 @@ sale <- bookssorted %>% mutate(saleprice=ifelse(publishyr<1960 & stocknumber>7,p
 salesub <- sale %>% filter(publishyr<1960 | stocknumber>7)
 
 #subset by columns
-finaltable <- salesub %>% select(author,title,saleprice)
+finaltable <- salesub %>% select(author,title,saleprice) 
