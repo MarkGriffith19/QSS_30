@@ -1,0 +1,28 @@
+#lab 2
+#Name: Mark Griffith
+#Date: 9/22/16
+
+library(dplyr)
+library(tidyr)
+library(readr)
+
+#read in IPUMS csv file, exclude Alaska and Hawaii before 1960
+a <- read_csv('./9_22.csv') %>% filter(!(YEAR < 1960 & STATEFIP %in% c(2,15)))
+
+#read in crosswalk, creating dataframe called races
+races <- read_csv('./races.csv', col_types = cols(RACED='i'))
+
+#add race names to dataframe
+b <- left_join(a,races,by='RACED')
+
+#check to what left_join has changed about your table
+head(b)
+
+#determine population by race per year
+c <- b %>% group_by(YEAR,RACES) %>% summarize(NUMBER = sum(PERWT))
+
+#one row for each race, one column for each year
+d <- c %>% spread(YEAR,NUMBER)
+
+#export table as a .csv file
+write_csv(d,'./race_table.csv')
