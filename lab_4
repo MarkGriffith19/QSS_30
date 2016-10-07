@@ -1,0 +1,59 @@
+#Mark Griffith
+#Lab 4
+#QSS 30
+
+#load packages
+library(dplyr)
+library(readr)
+library(ggplot2)
+library(RColorBrewer)
+
+#read in IPUMS data
+ipums <- read_csv('usa_00004.csv')
+
+#recode sex variable
+a <- ipums %>% mutate(Sex=factor(SEX,labels=c('Male','Female')))
+
+#create vector of age category labels
+agecats <- '0-9'
+for (i in 1:7) {
+  agecats <- c (agecats,paste(i,'0-',i,9,sep=''))
+}
+agecats <- c(agecats, '80+')
+
+b <- a %>% mutate(Age=ifelse(AGE>=80,8,floor(AGE/10)))
+c <- b %>% mutate(Age=factor(Age,labels=agecats))
+
+#recode birthplace variables to generations
+d <- c %>% mutate(Gen=ifelse(BPL==250 | BPL==260,'First Generation',
+                             ifelse((MBPL==250 | MBPL==260) | (FBPL==250 | FBPL == 260),'Second Generation',
+                                    'Neither')))
+
+#exclude Alaska and Hawaii for years before 1960
+e <- d %>% filter(YEAR>=1960 | !(STATEFIP %in% c(2,15)))
+
+#exclude people who are not first or second generation immigrants
+f <- e %>% filter(Gen != 'Neither')
+
+#use sample line weight when the long form census was given; use PERWT otherwise
+f2 <- f %>% mutate(Weight=ifelse(YEAR==1940 & Gen=='Second Generation',SLWT,PERWT))
+
+#group by relevant variables for your graph
+g <- f2 %>% group_by(Age,Sex,Gen,YEAR) %>% summarize(Number=sum(Weight))
+#make male and female bars go in opposite directions
+g2 <- g %>% mutate(Number=ifelse(Sex=='Male',-1 * Number,Number))
+
+#graph population period
+ggplot(data=g2,aes(x=Age,y=Number,fill=Sex)) +
+  geom_bar(data=g2[g2$Sex=='Male',],stat='identity') +
+  geom_bar(data=g2[g2$Sex=='Female',],stat='identity') +
+  coord_flip() +
+  facet_grid(Gen~.~YEAR) +
+  scale_y_continuous(breaks=c(-25000,-15000,-5000,0,5000,15000,25000),
+                     labels=c('25','15','5','0','5','15','25')) +
+  labs(fill='',y='Population in Thousands',title='Population Pyramids for Caribbean-American Immigrants and their Children') +
+  scale_fill_brewer(palette='Set1',guide=guide_legend(reverse=TRUE)) +
+  theme_bw() + theme(legend.position='bottom')
+#save as pdf (font is too small in png)
+#I took a screenshot of the PDF to get it into my word document
+ggsave('pop_pyramid.pdf',width = 10,height = 7.5)
