@@ -56,4 +56,4 @@ ggplot(data=g2,aes(x=Age,y=Number,fill=Sex)) +
   theme_bw() + theme(legend.position='bottom')
 #save as pdf (font is too small in png)
 #I took a screenshot of the PDF to get it into my word document
-ggsave('pop_pyramid.pdf',width = 10,height = 7.5)
+ggsave('final_pop_pyramid.pdf',width = 10,height = 7.5)
