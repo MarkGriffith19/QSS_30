@@ -26,7 +26,7 @@ c <- b %>% mutate(Age=factor(Age,labels=agecats))
 
 #recode birthplace variables to generations
 d <- c %>% mutate(Gen=ifelse(BPL==250 | BPL==260,'First Generation',
-                             ifelse((MBPL==250 | MBPL==260) | (FBPL==250 | FBPL == 260),'Second Generation',
+                             ifelse((MBPL==250 | MBPL==260) & BPL<100 | (FBPL==250 | FBPL == 260) & BPL<100,'Second Generation',
                                     'Neither')))
 
 #exclude Alaska and Hawaii for years before 1960
