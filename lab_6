@@ -1,0 +1,122 @@
+#Mark Griffith
+#Lab 6
+#QSS 30
+
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(RColorBrewer)
+
+#household graph
+
+#read in IPUMS data
+ipums <- read_csv('./usa_00010.csv', col_types = cols(PERWT=col_double(),HHWT=col_double()))
+
+#filter by people who don't live in group quarters or AK or HI
+filtered_ipums <- ipums %>% filter(GQ==1 & !(YEAR < 1960 & STATEFIP %in% c(2,15)))
+
+Regions <- filtered_ipums %>% mutate(REGION=factor(ifelse(STATEFIP %in% c(2,4,6,8,15,16,30,32,35,41,49,53,56), 4,
+                                                   ifelse(STATEFIP %in% c(17,18,19,20,26,27,29,31,38,39,46,55),3,
+                                                   ifelse(STATEFIP %in% c(9,23,25,33,34,36,42,44,50),1,2))),
+                                                   labels=c('Northeast','South','Midwest','West')))
+
+#create data frame for heads of household who are married
+heads <- Regions %>% filter(RELATE==1) %>% rename(Hrace=RACE)
+
+#create data frame for spouses of heads of household who are married
+spouses <- Regions %>% filter(RELATE==2) %>% select(YEAR,SERIAL,PERNUM,RACE) %>% rename(Sprace=RACE)
+  
+
+#create data frame for couples and categorize by unmarried, interracial, or same race
+couples <- left_join(heads,spouses,by=c('YEAR','SERIAL','SPLOC'='PERNUM')) %>%
+  mutate(Samerace=factor(ifelse(SPLOC==0,1,
+                         ifelse(Hrace!=Sprace,2,3)),
+                         labels=c('Head Unmarried', 'Different Races','Same Race')))
+
+#group variables
+hhrace <- couples %>% group_by(YEAR,Samerace,REGION) %>% summarise(Number=sum(HHWT)) 
+
+allhhrace <-hhrace %>% group_by(YEAR,REGION) %>% mutate(Total=sum(Number))
+
+pctrace <- left_join(hhrace, allhhrace) 
+
+pctrace <- pctrace %>% mutate(pct=Number/Total*100)
+
+printplot <- function(plot) {
+  png('plot.png',height=500,width=1000)
+  print(plot)
+  dev.off()
+}
+
+library(scales)
+graphcouples <- ggplot(pctrace, aes(x=REGION,y=pct/100,fill=Samerace)) +
+  geom_bar(stat='identity',aes(width=rescale(Total,c(.1,1)))) +
+  labs(fill='Head and Spouse',
+       title='Percent of Households Headed by Couples of Same Race and Different Races, 1900-1990',
+       x='Region', y='Percent of Households') +
+  theme_bw(base_size=10) +
+  facet_wrap(~YEAR, nrow=2) +
+  scale_y_continuous(labels=scales::percent) +
+  geom_text(label=ifelse(pctrace$Samerace=='Different Races',paste('Different=',round(pctrace$pct,1),'%',sep=''),''),
+            y=ifelse(pctrace$Samerace=='Different Races',.5,.9),angle=90) +
+  scale_fill_brewer(palette='Set2')
+printplot(graphcouples)  
+
+
+#~~~~~~~~~~~~~~~~~~~
+
+#kid graph
+
+#read in IPUMS data
+ipums <- read_csv('./usa_00012.csv', col_types = cols(PERWT=col_double(),HHWT=col_double()))
+
+#filter by people who don't live in group quarters or AK or HI
+filtered_ipums <- ipums %>% filter(GQ==1 & !(YEAR < 1960 & STATEFIP %in% c(2,15)))
+
+Regions <- filtered_ipums %>% mutate(REGION=factor(ifelse(STATEFIP %in% c(2,4,6,8,15,16,30,32,35,41,49,53,56), 4,
+                                                   ifelse(STATEFIP %in% c(17,18,19,20,26,27,29,31,38,39,46,55),3,
+                                                   ifelse(STATEFIP %in% c(9,23,25,33,34,36,42,44,50),1,2))),
+                              labels=c('Northeast','South','Midwest','West')))
+
+#create data frame for households with at least one child
+children <- Regions %>% filter(AGE<18 & (MOMLOC>0 | POPLOC>0))
+#of those, create data frame for households with at least one father
+fathers <- Regions %>% filter(SEX==1) %>% select(YEAR,SERIAL,PERNUM,RACE) %>% 
+  rename(Frace=RACE) 
+#of those, create data frame for households with at least one mother
+mothers <- Regions %>% filter(SEX==2) %>% select(YEAR,SERIAL,PERNUM,RACE) %>%
+  rename(Mrace=RACE)
+
+#create data frame for couples and categorize by unmarried, interracial, or same race
+parents <- left_join(children,fathers,by=c('YEAR','SERIAL','POPLOC'='PERNUM')) %>%
+  left_join(mothers,by=c('YEAR','SERIAL','MOMLOC'='PERNUM'))
+
+parentsraces <- parents %>% mutate(Samerace=factor(ifelse((MOMLOC==0 | POPLOC==0),1,
+                                                   ifelse(Frace!=Mrace,2,3)),
+                            labels=c('Only One Parent','Different Races','Same Race')))
+
+#group variables
+race <- parentsraces %>% group_by(YEAR,Samerace,REGION) %>% summarise(Number=sum(PERWT)) 
+
+total <- race %>% group_by(YEAR,REGION) %>% mutate(Total=sum(Number))
+
+pctrace <- left_join(race,total)
+
+pctrace <- pctrace %>% mutate(pct=Number/Total*100)
+
+
+library(scales)
+
+graph1 <- ggplot(pctrace, aes(x=REGION,y=pct/100,fill=Samerace)) +
+  geom_bar(stat='identity',aes(width=rescale(Total,c(.1,1)))) +
+  labs(fill='Parents',
+  title='Percent of Children with Parents of Same Race and Different Races, 1900-1990',
+  x='Region',y='Percent of Children') +
+  theme_bw(base_size=10) + 
+  facet_wrap(~YEAR, nrow=2) +
+  scale_y_continuous(labels=scales::percent) +
+  geom_text(label=ifelse(pctrace$Samerace=='Different Races',paste('Different=',round(pctrace$pct,1),'%',sep=''),''),
+            y=ifelse(pctrace$Samerace=='Different Races',.5,.9),angle=90) +
+  scale_fill_brewer(palette='Set2')
+printplot(graph1)
+
