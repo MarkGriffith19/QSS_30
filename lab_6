@@ -12,9 +12,10 @@ library(RColorBrewer)
 #read in IPUMS data
 ipums <- read_csv('./usa_00010.csv', col_types = cols(PERWT=col_double(),HHWT=col_double()))
 
-#filter by people who don't live in group quarters or AK or HI
+#filter by people who don't live in group quarters or AK or HI before 1960
 filtered_ipums <- ipums %>% filter(GQ==1 & !(YEAR < 1960 & STATEFIP %in% c(2,15)))
 
+#Recode states into regions
 Regions <- filtered_ipums %>% mutate(REGION=factor(ifelse(STATEFIP %in% c(2,4,6,8,15,16,30,32,35,41,49,53,56), 4,
                                                    ifelse(STATEFIP %in% c(17,18,19,20,26,27,29,31,38,39,46,55),3,
                                                    ifelse(STATEFIP %in% c(9,23,25,33,34,36,42,44,50),1,2))),
@@ -35,13 +36,11 @@ couples <- left_join(heads,spouses,by=c('YEAR','SERIAL','SPLOC'='PERNUM')) %>%
 
 #group variables
 hhrace <- couples %>% group_by(YEAR,Samerace,REGION) %>% summarise(Number=sum(HHWT)) 
-
 allhhrace <-hhrace %>% group_by(YEAR,REGION) %>% mutate(Total=sum(Number))
-
 pctrace <- left_join(hhrace, allhhrace) 
-
 pctrace <- pctrace %>% mutate(pct=Number/Total*100)
 
+#define function to print plots
 printplot <- function(plot) {
   png('plot.png',height=500,width=1000)
   print(plot)
@@ -49,6 +48,7 @@ printplot <- function(plot) {
 }
 
 library(scales)
+#graph the plot and export it
 graphcouples <- ggplot(pctrace, aes(x=REGION,y=pct/100,fill=Samerace)) +
   geom_bar(stat='identity',aes(width=rescale(Total,c(.1,1)))) +
   labs(fill='Head and Spouse',
@@ -70,9 +70,10 @@ printplot(graphcouples)
 #read in IPUMS data
 ipums <- read_csv('./usa_00012.csv', col_types = cols(PERWT=col_double(),HHWT=col_double()))
 
-#filter by people who don't live in group quarters or AK or HI
+#filter by people who don't live in group quarters or AK or HI before 1960
 filtered_ipums <- ipums %>% filter(GQ==1 & !(YEAR < 1960 & STATEFIP %in% c(2,15)))
 
+#recode states into regions
 Regions <- filtered_ipums %>% mutate(REGION=factor(ifelse(STATEFIP %in% c(2,4,6,8,15,16,30,32,35,41,49,53,56), 4,
                                                    ifelse(STATEFIP %in% c(17,18,19,20,26,27,29,31,38,39,46,55),3,
                                                    ifelse(STATEFIP %in% c(9,23,25,33,34,36,42,44,50),1,2))),
@@ -83,7 +84,7 @@ children <- Regions %>% filter(AGE<18 & (MOMLOC>0 | POPLOC>0))
 #of those, create data frame for households with at least one father
 fathers <- Regions %>% filter(SEX==1) %>% select(YEAR,SERIAL,PERNUM,RACE) %>% 
   rename(Frace=RACE) 
-#of those, create data frame for households with at least one mother
+#of children dataframe, create data frame for households with at least one mother
 mothers <- Regions %>% filter(SEX==2) %>% select(YEAR,SERIAL,PERNUM,RACE) %>%
   rename(Mrace=RACE)
 
@@ -91,22 +92,21 @@ mothers <- Regions %>% filter(SEX==2) %>% select(YEAR,SERIAL,PERNUM,RACE) %>%
 parents <- left_join(children,fathers,by=c('YEAR','SERIAL','POPLOC'='PERNUM')) %>%
   left_join(mothers,by=c('YEAR','SERIAL','MOMLOC'='PERNUM'))
 
+#determine if the children have only one parents, interracial parents, or same race parents
 parentsraces <- parents %>% mutate(Samerace=factor(ifelse((MOMLOC==0 | POPLOC==0),1,
                                                    ifelse(Frace!=Mrace,2,3)),
                             labels=c('Only One Parent','Different Races','Same Race')))
 
 #group variables
 race <- parentsraces %>% group_by(YEAR,Samerace,REGION) %>% summarise(Number=sum(PERWT)) 
-
 total <- race %>% group_by(YEAR,REGION) %>% mutate(Total=sum(Number))
-
 pctrace <- left_join(race,total)
-
 pctrace <- pctrace %>% mutate(pct=Number/Total*100)
 
 
 library(scales)
 
+#graph and export
 graph1 <- ggplot(pctrace, aes(x=REGION,y=pct/100,fill=Samerace)) +
   geom_bar(stat='identity',aes(width=rescale(Total,c(.1,1)))) +
   labs(fill='Parents',
