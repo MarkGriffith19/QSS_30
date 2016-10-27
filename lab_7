@@ -1,0 +1,91 @@
+#Mark Griffith
+#Lab 7
+#QSS 30
+
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(RColorBrewer)
+library(scales)
+
+#read in IPUMS data
+ipums <- read_csv('./usa_00013.csv')
+
+#only look at people living in houses, older than 15, with a positive income
+filtered_ipums <- ipums %>% filter(GQ==1 & AGE>=16 & (INCWAGE>0 & INCWAGE<9999999))
+
+#recode race variables
+Races <- filtered_ipums %>% mutate(SingleRace=ifelse(HISPAN>0,'Hispanic',
+                                              ifelse(RACESING==1,'White',
+                                              ifelse(RACESING==2,'Black',
+                                              ifelse(RACESING==3,'Native American',
+                                              ifelse(RACESING==4,'Asian','Other'))))))
+
+#exclude people of race 'other'
+notother <- Races %>% filter(SingleRace!='Other')
+
+#recode sex variable
+Gender <- notother %>% mutate(Sex=factor(SEX,labels=c('Male','Female')))
+
+#adjust income for inflation
+income <- Gender %>% mutate(Inc=INCWAGE*CPI99)
+
+#determine whether the data should be weighted by PERWT or SLWT
+weight <- incrange %>% mutate(Weight=ifelse(YEAR!=1950,PERWT,SLWT))
+
+#adjust for top coding
+adjincome<- weight %>% mutate(Inc=ifelse(Inc>59941.99,59941.99,Inc))
+
+#create ranges of income
+incrange <- adjincome %>% mutate(Incrange=factor(ifelse(Inc<10000,1,
+                                              ifelse(Inc<20000,2,
+                                              ifelse(Inc<30000,3,
+                                              ifelse(Inc<40000,4,
+                                              ifelse(Inc<59000,5,6))))),
+          labels=c('$1-9,999','$10,000-19,999','$20,000-29,999','$30,000-39,999','$40,000-58,999','$59,000+')))
+
+#set the quantiles for the box & whisker plots
+group <- incrange %>% group_by(SingleRace,YEAR,Sex) %>% summarize(MED=median(rep(Inc,times=Weight)),
+                                                                   MIN=quantile(rep(Inc,times=Weight),.1),
+                                                                   LOW=quantile(rep(Inc,times=Weight),.25),
+                                                                   HIGH=quantile(rep(Inc,times=Weight),.75),
+                                                                   MAX=quantile(rep(Inc,times=Weight),.9))
+
+#group variables for the column graph
+group2 <- incrange %>% group_by(SingleRace,YEAR,Sex,Incrange) %>% summarize(Number=sum(Weight))
+group2a <- incrange %>% group_by(SingleRace,YEAR,Sex) %>% summarize(Total=sum(Weight))
+pctincome <- left_join(group2,group2a) %>% mutate(Percent=(Number/Total)*100)
+
+
+#box plot
+png('Figure_2.png',height=500,width=1000)
+ggplot(group, aes(x=YEAR,ymin=MIN,lower=LOW,middle=MED,upper=HIGH,ymax=MAX,fill=Sex)) +
+  geom_boxplot(stat='identity',position='dodge') +
+  facet_wrap(~SingleRace) + theme_bw(base_size=24) + scale_fill_brewer(palette="Set1") +
+  labs(fill='Sex',
+       title='Income by Race and Sex for Those with Income, 1940-2000',
+       x='Year',y='Income, U.S. Dollars') +
+  theme(legend.position='bottom') +
+  scale_y_continuous(labels=scales::comma)
+dev.off()
+
+#line graph
+ggplot(group, aes(x=YEAR,y=MED,color=SingleRace)) +
+  geom_line(size=1.5) + geom_point(size=2) +
+  facet_grid(Sex~.) + 
+  labs(color='Race/Ethnicity',title='Median Income by Race and Sex for Those with Income, 1940-2000',
+       x='Year',y='Median Income, U.S. Dollars') +
+  scale_y_continuous(labels=scales::comma) + theme_bw(base_size=18) 
+ggsave("test.pdf", width = 20, height = 7.5)
+
+#column graph
+png('Figure_1.png',height=500,width=1000)
+ggplot(data=arrange(pctincome,Incrange),aes(x=YEAR,y=Percent/100,fill=Incrange)) + 
+  geom_bar(stat='identity',position='stack') +
+  labs(x='Year',y='Percent',fill='Income',
+       title='Income by Race and Sex for Those with Income, 1940-2000') +
+  scale_y_continuous(labels=scales::percent) +
+  scale_fill_brewer(palette='Set2') +
+  facet_grid(Sex~.~SingleRace) +
+  theme_bw(base_size=18) + theme(legend.position='bottom')
+dev.off()
