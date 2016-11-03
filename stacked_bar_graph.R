@@ -8,8 +8,8 @@ library(readr)
 library(ggplot2)
 library(RColorBrewer)
 
-#read in IPUMS data, omit Alaska & Hawaii, limit to ages 15-65
-ipums <- read_csv('./usa_00009.csv') %>% filter(AGE>=15 & AGE<=65 & (STATEFIP %in% c(12,36)) &
+#read in IPUMS data, look only at NY and FL, limit to ages 15-65, people born in Cuba, Dominican Republic, Haiti, or Jamaica
+ipums <- read_csv('./usa_00015.csv') %>% filter(AGE>=18 & AGE<=65 & (STATEFIP %in% c(12,36)) &
                                                 BPLD %in% c(25000,26010,26020,26030))
 #define Latin-Caribbean vs. Afro-Caribbean
 Bplace <- ipums %>% mutate(Birthplace=factor(ifelse((BPLD==25000 | BPLD==26010),1,2),
@@ -32,11 +32,11 @@ Relevant <- NY_FL %>% select(YEAR,PERWT,State,Birthplace,Occupation)
 figure1 <- Relevant %>% group_by(YEAR,State,Birthplace,Occupation) %>% summarize(Number=sum(PERWT))
 
 #make stacked bar graph for occ. of ppl aged 15-65 by sex, race & year 1870-1920
-png('Figure_1.png',height=500,width=1000)
+png('Figure_2.png',height=500,width=1000)
 ggplot(data=arrange(figure1,Occupation),aes(x=YEAR,y=Number,fill=Occupation)) + 
   geom_bar(stat='identity',position='fill') +
   labs(x='Year',y='Percent of Population',fill='Occupation',
-       title='1. Occupation of Cuban-, Dominican-, Haitian-, and Jamaican-Born Persons Aged 15-65 by Region & Year, 1950-2000') +
+       title='2. Occupation of Cuban-, Dominican-, Haitian-, and Jamaican-Born Persons Aged 18-65 by Region & Year, 1950-2000') +
   scale_y_continuous(labels=scales::percent) +
   scale_x_continuous(breaks=c(1950,1970,1990)) +
   scale_fill_brewer(palette='Accent') +
