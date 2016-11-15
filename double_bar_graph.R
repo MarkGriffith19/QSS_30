@@ -50,9 +50,25 @@ figure3b <- Relevant %>% group_by(YEAR,Birthplace,State) %>% summarize(Total=sum
 #create percentage values
 figure3 <- left_join(figure3a,figure3b) %>% mutate(Percent=(Number/Total)*100)
 
-#make double bar graph for incomes by state and birthplace
-png('Figure_3_wrong.png',height=500,width=1000)
-ggplot(figure3,aes(x=incrange,y=Percent/100,fill=Birthplace)) + 
+#create data frame for all instances when the number of Afro-Caribbean incomes in a range is 0
+#stops ggplot from graphing the same bars next to each other
+YEAR = c(1950, 1950, 1960, 1960, 1970, 1970)
+Birthplace = c("Afro-Caribbean (Haiti & Jamaica)", "Afro-Caribbean (Haiti & Jamaica)", 
+               "Afro-Caribbean (Haiti & Jamaica)", "Afro-Caribbean (Haiti & Jamaica)", 
+               "Afro-Caribbean (Haiti & Jamaica)", "Afro-Caribbean (Haiti & Jamaica)")
+State = c("Florida", "Florida", "Florida", "Florida", "Florida", "Florida")
+incrange = c("<20","<50","<50","<70","<70","70+")
+Number = c(0,0,0,0,0,0)
+Total = c(100,100,100,100,100,100)
+Percent = c(0,0,0,0,0,0)
+extra = data.frame(YEAR, Birthplace, State, incrange, Number, Total, Percent)
+
+#bind this data frame to the figure 3 data frame
+figure3new <- rbind(as.data.frame(figure3), as.data.frame(extra))
+
+#make double bar graph
+png('Figure_3.png',height=500,width=1000)
+ggplot(figure3new,aes(x=incrange,y=Percent/100,fill=Birthplace)) + 
   geom_bar(stat='identity',position='dodge') +
   labs(x='Income in Thousands of U.S. Dollars',y='Percent of Population',fill='Region of Birth',
        title='3. Income of Latin-Caribbean vs. Afro-Caribbean Immigrants Aged 18-65 by Census Year, 1950-2000') +
