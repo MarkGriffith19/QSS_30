@@ -3,14 +3,16 @@
 #QSS 30
 #Final Project
 
+#read in packages
 library(dplyr)
 library(readr)
 library(ggplot2)
 library(RColorBrewer)
 
-#read in IPUMS data, look only at NY and FL, limit to ages 15-65, people born in Cuba, Dominican Republic, Haiti, or Jamaica
+#read in IPUMS data, look only at NY and FL, limit to ages 18-65, people born in Cuba, Dominican Republic, Haiti, or Jamaica
 ipums <- read_csv('./usa_00015.csv') %>% filter(AGE>=18 & AGE<=65 & (STATEFIP %in% c(12,36)) &
                                                 BPLD %in% c(25000,26010,26020,26030))
+
 #define Latin-Caribbean vs. Afro-Caribbean
 Bplace <- ipums %>% mutate(Birthplace=factor(ifelse((BPLD==25000 | BPLD==26010),1,2),
                            labels=c('Latin-Caribbean (Cuba & Dominican Republic)','Afro-Caribbean (Haiti & Jamaica)')))
@@ -31,7 +33,7 @@ Relevant <- NY_FL %>% select(YEAR,PERWT,State,Birthplace,Occupation)
 #group variables
 figure1 <- Relevant %>% group_by(YEAR,State,Birthplace,Occupation) %>% summarize(Number=sum(PERWT))
 
-#make stacked bar graph for occ. of ppl aged 15-65 by sex, race & year 1870-1920
+#make stacked bar graph for occ. of ppl aged 18-65 by state and birthplace
 png('Figure_2.png',height=500,width=1000)
 ggplot(data=arrange(figure1,Occupation),aes(x=YEAR,y=Number,fill=Occupation)) + 
   geom_bar(stat='identity',position='fill') +
