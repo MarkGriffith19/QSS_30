@@ -3,6 +3,7 @@
 #QSS 30
 #final project
 
+#read in packages
 library(dplyr)
 library(readr)
 library(plotly)
@@ -16,7 +17,6 @@ filtered_ipums <- ipums %>% filter((STATEFIP %in% c(12,36)) &
                                     BPLD %in% c(25000,26010,26020,26030) & 
                                     (AGE>=18 & AGE<=65) &
                                      (INCWAGE>0 & INCWAGE<999999))
-#either do 18 or 15
 
 #define Latin-Caribbean vs. Afro-Caribbean
 Bplace <- filtered_ipums %>% mutate(Birthplace=factor(ifelse((BPLD==25000 | BPLD==26010),1,2),
@@ -28,10 +28,13 @@ NY_FL <- Bplace %>% mutate(State=ifelse(STATEFIP==12,'Florida','New York'))
 #adjust income for inflation
 income <- NY_FL %>% mutate(Inc=INCWAGE * CPI99)
 
+#use SLWT in 1950 and PERWT in all other years
 weight <- income %>% mutate(Weight=ifelse(YEAR!=1950,PERWT,SLWT))
 
+#adjust for top-coding
 adjincome<- weight %>% mutate(Inc=ifelse(Inc>70000,70000,Inc))
 
+#create ranges of income
 incomeranges <- adjincome %>% mutate(incrange=factor(ifelse(Inc<10000,1,
                                                   ifelse(Inc<20000,2,
                                                   ifelse(Inc<50000,3,
@@ -44,11 +47,12 @@ Relevant <- incomeranges %>% select(YEAR,Weight,State,Birthplace,incrange)
 #group variables
 figure3a <- Relevant %>% group_by(YEAR,Birthplace,State,incrange) %>% summarize(Number=sum(Weight))
 figure3b <- Relevant %>% group_by(YEAR,Birthplace,State) %>% summarize(Total=sum(Weight))
+#create percentage values
 figure3 <- left_join(figure3a,figure3b) %>% mutate(Percent=(Number/Total)*100)
 
-#make double bar graph
-png('Figure_3.png',height=500,width=1000)
-ggplot(data=arrange(figure3,incrange),aes(x=incrange,y=Percent/100,fill=Birthplace)) + 
+#make double bar graph for incomes by state and birthplace
+png('Figure_3_wrong.png',height=500,width=1000)
+ggplot(figure3,aes(x=incrange,y=Percent/100,fill=Birthplace)) + 
   geom_bar(stat='identity',position='dodge') +
   labs(x='Income in Thousands of U.S. Dollars',y='Percent of Population',fill='Region of Birth',
        title='3. Income of Latin-Caribbean vs. Afro-Caribbean Immigrants Aged 18-65 by Census Year, 1950-2000') +
