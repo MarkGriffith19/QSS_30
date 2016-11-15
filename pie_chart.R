@@ -3,6 +3,7 @@
 #QSS 30
 #final project
 
+#read in packages
 library(dplyr)
 library(readr)
 library(plotly)
@@ -12,11 +13,11 @@ library(RColorBrewer)
 ipums <- read_csv('./usa_00009.csv') %>% filter((STATEFIP %in% c(12,36)) &
                                                   BPLD %in% c(25000,26010,26020,26030))
 
-#define Latin-Caribbean vs. Afro-Caribbean
+#recode race into black, white, or mixed/other
 Races <- ipums %>% mutate(Race=factor(ifelse(RACE==1,1,
                                              ifelse(RACE==2,2,3)),
                                              labels=c('White','Black','Mixed/Other')))
-#recode race
+#define Latin-Caribbean vs. Afro-Caribbean
 Bplace <- Races %>% mutate(Birthplace=ifelse(BPLD==25000 | BPLD==26010,'Latin-Caribbean','Afro-Caribbean'))
 
 #keep only relevant variables
@@ -25,9 +26,10 @@ Relevant <- Bplace %>% select(PERWT,Birthplace,Race)
 #group variables
 figure2 <- Relevant %>% group_by(Birthplace,Race) %>% summarize(Number=sum(PERWT))
 figure2b <- Relevant %>% group_by(Birthplace) %>% summarize(Total=sum(PERWT))
+#create percentage
 figure2 <- left_join(figure2,figure2b) %>% mutate(Percent=(Number/Total)*100)
 
-#graph and export
+#create pie chart showing race by Birthplace
 png('Figure_1.png',height=500,width=1000)
 ggplot(figure2,aes(x=factor(1),y=Percent,fill=Race)) + 
   geom_bar(width=1, stat='identity') +
